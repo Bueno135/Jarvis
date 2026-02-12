@@ -1,9 +1,12 @@
 pyyaml
 colorlog
-vosk
+colorlog
 sounddevice
 numpy
 keyboard
 pystray
 Pillow
 google-genai
+transformers
+torch
+scipy

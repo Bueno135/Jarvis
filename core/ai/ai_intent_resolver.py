@@ -39,14 +39,15 @@ class AIIntentResolver(IntentResolver):
 
         # 3. Chamar API
         self.logger.info(f"Consultando IA para: '{text}'")
-        raw_response = self.client.generate_response(system_prompt, text)
+        raw_response = self.client.generate_response(text, system_instruction=system_prompt)
         
         if not raw_response:
             return None
 
         # 4. Parse e Validação
         try:
-            data = json.loads(raw_response)
+            # O client já retorna um dicionário (JSON parseado)
+            data = raw_response
             
             intent = data.get("intent")
             if not intent or intent == "unknown":
@@ -104,7 +105,13 @@ For questions:
 "response": "short concise answer"
 }
 
-If unsure:
+If the user input is not a command, you MUST reply as a helpful assistant.
+{
+"intent": "question",
+"response": "your helpful answer here"
+}
+
+If you really cannot help or understand:
 {
 "intent": "unknown"
 }

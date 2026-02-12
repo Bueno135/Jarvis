@@ -1,17 +1,6 @@
-import sys
-import os
-print(f"DEBUG: Executable: {sys.executable}")
-print(f"DEBUG: Path: {sys.path}")
-print(f"DEBUG: CWD: {os.getcwd()}")
-try:
-    import google
-    print(f"DEBUG: google package: {google.__path__}")
-except ImportError:
-    print("DEBUG: Could not import 'google' package")
-
-import google.generativeai # Force load first
 import argparse
 import sys
+# import google.genai # Force load first (removed to let client handle it)
 import yaml
 import os
 from core.kernel import Kernel, SystemState

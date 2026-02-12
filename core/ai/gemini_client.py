@@ -1,76 +1,71 @@
 import os
-import sys
+from google.genai import Client
 from typing import Optional, Dict, Any
+import json
 from core.logger import setup_logger
-
-try:
-    import google.genai
-except ImportError as e:
-    print(f"CRITICAL ERROR: Failed to import google.genai. Error: {e}")
-    print(f"Python Executable: {sys.executable}")
-    print(f"Sys Path: {sys.path}")
-    raise e
 
 class GeminiClient:
     """
-    Cliente para a API do Google Gemini.
-    Encapsula o SDK google-generativeai e tratamento de erros.
+    Cliente para a API do Google Gemini (SDK google-genai).
     """
     def __init__(self, config: Dict[str, Any]):
         self.logger = setup_logger("Jarvis.AI.Gemini", config)
-        self.config = config
         
         # Carregar API Key
         # env_key_name = config.get("ai", {}).get("api_key_env", "GEMINI_API_KEY")
         self.api_key = "AIzaSyDqjN2vEkD8ZQBB-8K6_O3cP4cuyHXM-34"
         
         if not self.api_key:
-            self.logger.warning(f"API Key ({env_key_name}) não encontrada.")
+            self.logger.warning(f"API Key ({api_key_env}) não encontrada no ambiente.")
+            self.client = None
         else:
-            genai.configure(api_key=self.api_key)
+            try:
+                self.client = Client(api_key=self.api_key)
+                self.logger.info("Cliente Gemini (google-genai) inicializado.")
+            except Exception as e:
+                self.logger.error(f"Erro ao inicializar cliente Gemini: {e}")
+                self.client = None
 
-        # Tentar descobrir modelo suportado automaticamente
-        self.model_name = "gemini-1.5-flash" # Fallback inicial
-        try:
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    # Preferência por Flash ou Pro
-                    if "flash" in m.name or "pro" in m.name:
-                        self.model_name = m.name
-                        self.logger.info(f"Modelo Gemini selecionado: {self.model_name}")
-                        break
-        except Exception:
-            self.logger.warning("Falha ao listar modelos. Usando fallback: gemini-1.5-flash")
-            
-        self.timeout = config.get("ai", {}).get("timeout", 10)
+        self.model_name = config.get("ai", {}).get("model", "gemini-2.0-flash") 
 
-    def generate_response(self, system_prompt: str, user_text: str) -> Optional[str]:
-        """
-        Gera resposta usando Gemini.
-        """
-        if not self.api_key:
+    def generate_response(self, prompt: str, system_instruction: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        if not self.client:
+            self.logger.warning("Cliente Gemini não está pronto.")
             return None
 
+        self.logger.debug(f"Enviando prompt para Gemini ({self.model_name})...")
+
         try:
-            self.logger.debug(f"Enviando prompt para Gemini ({self.model_name})...")
-            
-            # Configuração do Modelo com System Instruction e JSON Mode
-            model = genai.GenerativeModel(
-                model_name=self.model_name,
-                system_instruction=system_prompt,
-                generation_config={
-                    "response_mime_type": "application/json"
-                }
+            # Configurar config do request
+            config_params = {
+                'response_mime_type': 'application/json'
+            }
+            if system_instruction:
+                config_params['system_instruction'] = system_instruction
+
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=config_params
             )
             
-            chat = model.start_chat(history=[])
-            response = chat.send_message(user_text)
-            
-            content = response.text
-            self.logger.debug(f"Resposta Gemini recebida: {content[:50]}...")
-            return content
+            if not response.text:
+                self.logger.warning("Resposta vazia do Gemini.")
+                return None
+
+            try:
+                # Limpar markdown ```json ... ``` se vier (o SDK geralmente manda puro se mime_type for json, mas garante)
+                cleaned_text = response.text.strip()
+                if cleaned_text.startswith("```json"):
+                    cleaned_text = cleaned_text[7:]
+                if cleaned_text.endswith("```"):
+                    cleaned_text = cleaned_text[:-3]
+                
+                return json.loads(cleaned_text)
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Erro ao fazer parse do JSON: {e}. Texto recebido: {response.text}")
+                return None
 
         except Exception as e:
             self.logger.error(f"Erro na requisição Gemini API: {e}")
-            print(f"DEBUG EXCEPTION: {e}")
             return None

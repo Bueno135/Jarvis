@@ -60,3 +60,14 @@ class IntentParser(ABC):
     @abstractmethod
     def parse(self, text: str) -> Optional[CommandContext]:
         pass
+
+class SpeechToText(ABC):
+    """
+    Protocol for Speech Recognition engines.
+    """
+    @abstractmethod
+    def transcribe(self, audio: bytes) -> str:
+        """
+        Transcribes raw audio bytes to text.
+        """
+        pass

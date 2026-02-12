@@ -20,3 +20,9 @@ ai:
   api_key_env: "GEMINI_API_KEY"
   timeout: 10
   enabled: true
+
+stt:
+  provider: "whisper"
+  model: "openai/whisper-tiny"
+  language: "pt"
+  device: "cpu"

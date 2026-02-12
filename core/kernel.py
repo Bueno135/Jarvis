@@ -123,7 +123,10 @@ class Kernel:
                 if ai_result:
                     intent = ai_result.get("intent")
                     if intent == "question":
-                         return CommandResult(True, f"AI: {ai_result.get('response')}")
+                         response_text = ai_result.get('response')
+                         self.logger.info(f"AI Response: {response_text}")
+                         # TODO: Enviar para TTS quando implementado
+                         return CommandResult(True, f"AI: {response_text}")
                     
                     # Mapear Intenção da IA -> Plugin
                     # Precisamos saber qual plugin trata qual intenção.
