@@ -25,6 +25,14 @@ class AIIntentResolver(IntentResolver):
         # Blacklist de palavras perigosas para validação pré-envio/pós-recebimento
         self.blacklist = ["rm ", "del ", "format ", "shutdown", "reg ", "system32"]
 
+        # Initialize Vision if enabled
+        try:
+            from core.vision import ScreenCapture
+            self.screen_capture = ScreenCapture(config)
+        except Exception as e:
+            self.logger.warning(f"Vision module not available: {e}")
+            self.screen_capture = None
+
     def resolve(self, text: str) -> Optional[Dict[str, Any]]:
         """
         Analisa o texto e retorna a intenção estruturada ou None.
@@ -37,9 +45,16 @@ class AIIntentResolver(IntentResolver):
         # 2. Construir System Prompt
         system_prompt = self._get_system_prompt()
 
-        # 3. Chamar API
-        self.logger.info(f"Consultando IA para: '{text}'")
-        raw_response = self.client.generate_response(text, system_instruction=system_prompt)
+        # 3. Vision Check
+        image = None
+        vision_keywords = ["tela", "screen", "imagem", "veja", "olha", "see", "look"]
+        if any(k in text.lower() for k in vision_keywords) and self.screen_capture:
+            self.logger.info("Vision keyword detected. Capturing screen...")
+            image = self.screen_capture.capture()
+
+        # 4. Chamar API
+        self.logger.info(f"Consultando IA para: '{text}' (Image: {image is not None})")
+        raw_response = self.client.generate_response(text, image=image, system_instruction=system_prompt)
         
         if not raw_response:
             return None
@@ -51,8 +66,11 @@ class AIIntentResolver(IntentResolver):
             
             intent = data.get("intent")
             if not intent or intent == "unknown":
-                self.logger.info("IA não identificou intenção clara (unknown).")
-                return None
+                # Fallback intended to always reply
+                return {
+                    "intent": "question",
+                    "response": data.get("response", "I'm listening, but didn't catch that.")
+                }
                 
             self.logger.info(f"IA identificou intenção: {intent}")
             
@@ -91,7 +109,6 @@ create_file
 write_text
 run_shell
 question
-unknown
 
 For command intents, return:
 {
@@ -111,10 +128,12 @@ If the user input is not a command, you MUST reply as a helpful assistant.
 "response": "your helpful answer here"
 }
 
-If you really cannot help or understand:
+If you really cannot help or understand, you MUST still reply creatively or ask for clarification.
 {
-"intent": "unknown"
+"intent": "question",
+"response": "I didn't quite catch that. Did you say...?"
 }
+
 
 User text:
 "{USER_TEXT}"

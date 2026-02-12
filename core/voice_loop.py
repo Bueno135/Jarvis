@@ -30,6 +30,11 @@ class VoiceLoop:
 
     def on_hotkey_activate(self):
         self.logger.info(">>> ATIVADO via Hotkey <<<")
+        
+        # Stop TTS if speaking
+        if self.kernel.tts:
+             self.kernel.tts.stop()
+             
         self.active_listening = True
         self.listening_event.set()
 
@@ -61,6 +66,9 @@ class VoiceLoop:
             silence_start = 0
             has_speech_started = False
             
+            # Track trigger type
+            self.is_manual_trigger = False
+
             # VAD Parameters
             SILENCE_TIMEOUT_SPEECH = 1.0    # Stop after 1.0s silence if speech was detected
             SILENCE_TIMEOUT_NO_SPEECH = 5.0 # Stop after 5.0s if no speech detected
@@ -73,14 +81,36 @@ class VoiceLoop:
                     break
                 
                 # Check Hotkey
+                # Logic: Always listen if VAD triggers (Energy > Threshold)
+                # But only process as command if:
+                # 1. Hotkey was pressed (is_capturing=True force)
+                # 2. Wake Word is detected in transcription
+                
+                # Check Hotkey (Manual Activation)
                 if self.listening_event.is_set():
                     self.listening_event.clear()
                     is_capturing = True
+                    self.is_manual_trigger = True # MARK AS MANUAL
                     audio_buffer = []
-                    silence_start = time.time() # Reset timer on activation
+                    silence_start = time.time() 
                     has_speech_started = False
                     self.kernel.set_state(SystemState.LISTENING)
-                    self.logger.info("Capturando áudio...")
+                    self.logger.info("Capturando áudio (Hotkey)...")
+
+                # Check Energy (VAD -> Passive Listening)
+                # Only if not already capturing manually
+                if not is_capturing:
+                     chunk_np = np.frombuffer(audio_chunk, dtype=np.int16)
+                     if len(chunk_np) > 0:
+                        energy = np.sqrt(np.mean(chunk_np.astype(float)**2))
+                        if energy > ENERGY_THRESHOLD:
+                            # Start passive capture
+                            is_capturing = True
+                            self.is_manual_trigger = False # MARK AS PASSIVE
+                            audio_buffer = []
+                            silence_start = time.time()
+                            has_speech_started = True # Assume speech started if energy high
+                            self.logger.debug("Voz detectada (Passive VAD).")
 
                 if is_capturing:
                     # Append chunk
@@ -123,10 +153,19 @@ class VoiceLoop:
                     
                     # 2. Max Buffer Size (Safety)
                     total_bytes = sum(len(c) for c in audio_buffer)
-                    if total_bytes > (16000 * 2 * 15): # ~15 seconds limit (16k * 2 bytes * 15s)
+                            is_capturing = False
+                            # Was it manual or passive?
+                            # We need to track this state.
+                            # Let's add self.is_manual_trigger = True/False
+                            self.process_buffer(b''.join(audio_buffer), manual_trigger=self.is_manual_trigger)
+                            audio_buffer = []
+                    
+                    # 2. Max Buffer Size (Safety)
+                    total_bytes = sum(len(c) for c in audio_buffer)
+                    if total_bytes > (16000 * 2 * 15): 
                          self.logger.info("Buffer cheio (15s). Processando...")
                          is_capturing = False
-                         self.process_buffer(b''.join(audio_buffer))
+                         self.process_buffer(b''.join(audio_buffer), manual_trigger=self.is_manual_trigger)
                          audio_buffer = []
 
         except KeyboardInterrupt:
@@ -137,7 +176,7 @@ class VoiceLoop:
              self.audio_manager.stop_stream()
              self.audio_manager.terminate()
 
-    def process_buffer(self, audio_data: bytes):
+    def process_buffer(self, audio_data: bytes, manual_trigger: bool = False):
         if not audio_data:
             return
 
@@ -157,8 +196,40 @@ class VoiceLoop:
         text = self.stt_service.transcribe(audio_data)
         
         if text:
-            self.logger.info(f"Texto: {text}")
-            self.kernel.dispatch(text)
+            # Check for wake word if not manually activated?
+            # Actually, we don't know here if it was manual or passive.
+            # But we can check if text starts with "Jarvis".
+            
+            wake_word = self.config.get("app", {}).get("wake_word", "jarvis").lower()
+            text_lower = text.lower().strip()
+            
+            # Remove punctuation for check
+            import string
+            text_clean = text_lower.translate(str.maketrans('', '', string.punctuation))
+            
+            if wake_word in text_clean:
+                self.logger.info(f"Wake Word '{wake_word}' detectado!")
+                # Remove wake word from command?
+                # "Jarvis what time is it" -> "what time is it"
+                # Simple replace:
+                command_text = text_lower.replace(wake_word, "", 1).strip()
+                if not command_text:
+                     # Just "Jarvis" -> activate listening state visually? 
+                     # Or ask "Sim?"
+                     self.kernel.speak("Sim?")
+                     return
+
+                self.logger.info(f"Texto: {command_text}")
+                self.kernel.dispatch(command_text)
+            else:
+                 if manual_trigger:
+                     # If manual, process everything even without wake word
+                     self.logger.info(f"Texto (Manual): {text}")
+                     self.kernel.dispatch(text)
+                 else:
+                     self.logger.info(f"Ignorado (sem wake word '{wake_word}'): {text}")
+                     pass
+
         else:
             self.logger.warning("Falha na transcrição ou vazio.")
             

@@ -28,7 +28,7 @@ class GeminiClient:
 
         self.model_name = config.get("ai", {}).get("model", "gemini-2.0-flash") 
 
-    def generate_response(self, prompt: str, system_instruction: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def generate_response(self, prompt: str, image: Optional[Any] = None, system_instruction: Optional[str] = None) -> Optional[Dict[str, Any]]:
         if not self.client:
             self.logger.warning("Cliente Gemini não está pronto.")
             return None
@@ -42,10 +42,16 @@ class GeminiClient:
             }
             if system_instruction:
                 config_params['system_instruction'] = system_instruction
+            
+            # Prepare contents
+            contents = [prompt]
+            if image:
+                 self.logger.info("Anexando imagem ao prompt...")
+                 contents.append(image)
 
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=prompt,
+                contents=contents,
                 config=config_params
             )
             

@@ -37,6 +37,15 @@ class Kernel:
         self.plugin_loader = PluginLoader(config=config)
         self.load_plugins()
 
+        # Initialize TTS
+        try:
+            from .tts import EdgeTTSService
+            self.tts = EdgeTTSService(config)
+            self.register_service("tts", self.tts)
+        except Exception as e:
+            self.logger.error(f"Failed to load TTS: {e}")
+            self.tts = None
+
         self.logger.info("Kernel initialized.")
 
     def load_plugins(self):
@@ -86,6 +95,15 @@ class Kernel:
         self.plugins[plugin.name()] = plugin
         self.logger.info(f"Plugin registered: {plugin.name()} with patterns: {plugin.patterns()}")
 
+    def speak(self, text: str):
+        """
+        Speak the given text using the registered TTS service.
+        """
+        if self.tts:
+            self.tts.speak(text)
+        else:
+            self.logger.warning("TTS not available.")
+
     def dispatch(self, text: str) -> CommandResult:
         """
         Main entry point for text commands.
@@ -125,7 +143,7 @@ class Kernel:
                     if intent == "question":
                          response_text = ai_result.get('response')
                          self.logger.info(f"AI Response: {response_text}")
-                         # TODO: Enviar para TTS quando implementado
+                         self.speak(response_text) # SPEAK THE RESPONSE
                          return CommandResult(True, f"AI: {response_text}")
                     
                     # Mapear Intenção da IA -> Plugin
@@ -175,15 +193,18 @@ class Kernel:
                     "status": "SUCCESS" if result.success else "FAILURE"
                 })
                 
+                # Feedback de voz opcional para sucesso
+                # self.speak(f"Comando {matched_plugin.name()} executado.") 
+                
                 self.set_state(SystemState.IDLE)
                 return result
                 
             except Exception as e:
                 self.logger.error(f"Plugin execution failed: {e}")
                 self.set_state(SystemState.ERROR)
+                self.speak("Ocorreu um erro ao executar o comando.")
                 return CommandResult(success=False, message=str(e))
         else:
             self.logger.warning(f"No intent found for: {text}")
             self.set_state(SystemState.IDLE)
             return CommandResult(success=False, message="I didn't understand that command.")
-

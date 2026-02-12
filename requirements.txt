@@ -10,3 +10,7 @@ google-genai
 transformers
 torch
 scipy
+edge-tts
+pygame
+pillow
+pyautogui

@@ -71,3 +71,28 @@ class SpeechToText(ABC):
         Transcribes raw audio bytes to text.
         """
         pass
+
+class TextToSpeech(ABC):
+    """
+    Protocol for Text-to-Speech engines.
+    """
+    @abstractmethod
+    def speak(self, text: str) -> None:
+        """
+        Synthesizes speech from text.
+        """
+        pass
+
+    @abstractmethod
+    def is_busy(self) -> bool:
+        """
+        Returns True if TTS is currently speaking.
+        """
+        pass
+
+    @abstractmethod
+    def stop(self) -> None:
+        """
+        Stops current playback.
+        """
+        pass

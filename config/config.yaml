@@ -1,7 +1,8 @@
 app:
   name: "Jarvis"
   version: "0.1.0"
-  language: "en-US"
+  language: "pt-BR"
+  wake_word: "jarvis"
 
 logging:
   level: "INFO"
