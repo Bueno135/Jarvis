@@ -1,0 +1,9 @@
+pyyaml
+colorlog
+vosk
+sounddevice
+numpy
+keyboard
+pystray
+Pillow
+google-genai

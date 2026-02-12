@@ -1,0 +1,22 @@
+app:
+  name: "Jarvis"
+  version: "0.1.0"
+  language: "en-US"
+
+logging:
+  level: "INFO"
+  file: "logs/jarvis.json"
+  console: true
+
+security:
+  command_whitelist: []
+  require_confirmation: true
+
+plugins:
+  enabled: []
+
+ai:
+  provider: "gemini"
+  api_key_env: "GEMINI_API_KEY"
+  timeout: 10
+  enabled: true

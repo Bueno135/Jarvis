@@ -1,0 +1,6 @@
+# Whitelist of allowed shell commands
+allowed_commands:
+  - "dir"
+  - "echo"
+  - "calc"
+  - "notepad"
