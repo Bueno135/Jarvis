@@ -28,7 +28,7 @@ class AIIntentResolver(IntentResolver):
         # Initialize Vision if enabled
         try:
             from core.vision import ScreenCapture
-            self.screen_capture = ScreenCapture(config)
+            self.screen_capture = ScreenCapture(self.config)
         except Exception as e:
             self.logger.warning(f"Vision module not available: {e}")
             self.screen_capture = None
@@ -59,7 +59,7 @@ class AIIntentResolver(IntentResolver):
         if not raw_response:
             return None
 
-        # 4. Parse e Validação
+        # 5. Parse e Validação
         try:
             # O client já retorna um dicionário (JSON parseado)
             data = raw_response
@@ -69,7 +69,7 @@ class AIIntentResolver(IntentResolver):
                 # Fallback intended to always reply
                 return {
                     "intent": "question",
-                    "response": data.get("response", "I'm listening, but didn't catch that.")
+                    "response": data.get("response", "Desculpe, não entendi. Pode repetir?")
                 }
                 
             self.logger.info(f"IA identificou intenção: {intent}")
@@ -94,7 +94,8 @@ class AIIntentResolver(IntentResolver):
         """
         Retorna o prompt de sistema rigoroso.
         """
-        return """You are an intent classification engine for a local automation assistant.
+        return """You are an intent classification engine for a local automation assistant named 'Sábado Feira'.
+You must always reply in PORTUGUESE (pt-BR).
 
 You must ONLY return valid JSON.
 
@@ -119,21 +120,20 @@ For command intents, return:
 For questions:
 {
 "intent": "question",
-"response": "short concise answer"
+"response": "short concise answer in Portuguese"
 }
 
-If the user input is not a command, you MUST reply as a helpful assistant.
+If the user input is not a command, you MUST reply as a helpful assistant in Portuguese.
 {
 "intent": "question",
-"response": "your helpful answer here"
+"response": "your helpful answer here in Portuguese"
 }
 
-If you really cannot help or understand, you MUST still reply creatively or ask for clarification.
+If you really cannot help or understand, you MUST still reply creatively or ask for clarification in Portuguese.
 {
 "intent": "question",
-"response": "I didn't quite catch that. Did you say...?"
+"response": "Não entendi, pode repetir?"
 }
-
 
 User text:
 "{USER_TEXT}"

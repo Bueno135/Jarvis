@@ -188,38 +188,85 @@ class VoiceLoop:
             # Actually, we don't know here if it was manual or passive.
             # But we can check if text starts with "Jarvis".
             
-            wake_word = self.config.get("app", {}).get("wake_word", "jarvis").lower()
-            text_lower = text.lower().strip()
+            # Wake Word Logic
+            raw_wake_word = self.config.get("app", {}).get("wake_word", "jarvis")
             
-            # Remove punctuation for check
+            # Helper to aggressive normalize (remove spaces, accents, punct)
+            import unicodedata
             import string
-            text_clean = text_lower.translate(str.maketrans('', '', string.punctuation))
+
+            def to_id(s):
+                if not s: return ""
+                # Decode if bytes (unlikely but safety)
+                if isinstance(s, bytes):
+                    s = s.decode('utf-8', errors='ignore')
+                
+                # Normalize unicode
+                s = unicodedata.normalize('NFD', s).encode('ascii', 'ignore').decode('utf-8')
+                s = s.lower()
+                # Remove punctuation AND SPACES
+                s = s.translate(str.maketrans('', '', string.punctuation + " \t\n\r"))
+                return s
+
+            wake_id = to_id(raw_wake_word)      # e.g. "sabadofeira"
+            text_id = to_id(text)               # e.g. "sabadofeiraquemcriouvoce"
+
+            self.logger.debug(f"Wake check: '{wake_id}' inside '{text_id}'? (Raw Text: {text})")
+
+            # Permissive Variations (Aggressively Normalized)
+            # "Sábado Feira" -> "sabadofeira"
+            # "Saba do Feira" -> "sabadofeira"
+            # "Cabado" -> "cabado"
+            possible_triggers = [wake_id]
             
-            if wake_word in text_clean:
-                self.logger.info(f"Wake Word '{wake_word}' detectado!")
-                # Remove wake word from command?
-                # "Jarvis what time is it" -> "what time is it"
-                # Simple replace:
-                command_text = text_lower.replace(wake_word, "", 1).strip()
+            # Add specific phonetic hacks for "sabado"
+            if "sabado" in wake_id:
+                possible_triggers.extend(["sabado", "cabado", "saba", "salvador"]) # "salvador" sometimes happens for sabado
+
+            is_wake = False
+            for trigger in possible_triggers:
+                if trigger and trigger in text_id:
+                     is_wake = True
+                     self.logger.info(f"Wake Word Detected: detected '{trigger}' in input.")
+                     break
+            
+            if is_wake:
+                # Remove the wake word from the start of the text for the command
+                # Since we stripped spaces, we can't easily map back index.
+                # Heuristic: Remove the first few words if they look like the wake word.
+                # Or just pass the whole text. The dispatcher/AI handles extra words well.
+                # But "Sábado Feira, que horas são" -> "que horas são" is cleaner.
+                
+                command_text = text
+                
+                # Try to strip first 2 words if matches
+                words = text.split()
+                if len(words) >= 1:
+                    # Check first 1-3 words combined
+                    check_len = min(len(words), 4)
+                    for i in range(check_len, 0, -1):
+                        segment = "".join(words[:i])
+                        if to_id(segment) in possible_triggers:
+                             command_text = " ".join(words[i:]).strip()
+                             # Remove leading commma/dots
+                             command_text = command_text.lstrip(",.-!?: ")
+                             break
+                
                 if not command_text:
-                     # Just "Jarvis" -> activate listening state visually? 
-                     # Or ask "Sim?"
                      self.kernel.speak("Sim?")
                      return
 
-                self.logger.info(f"Texto: {command_text}")
+                self.logger.info(f"Comando Processado: {command_text}")
                 self.kernel.dispatch(command_text)
             else:
                  if manual_trigger:
-                     # If manual, process everything even without wake word
-                     self.logger.info(f"Texto (Manual): {text}")
+                     self.logger.info(f"Comando Manual: {text}")
                      self.kernel.dispatch(text)
                  else:
-                     self.logger.info(f"Ignorado (sem wake word '{wake_word}'): {text}")
+                     self.logger.info(f"Ignorado (sem wake word): {text}")
                      pass
 
         else:
             self.logger.warning("Falha na transcrição ou vazio.")
             
-        self.kernel.set_state(SystemState.IDLE)
 

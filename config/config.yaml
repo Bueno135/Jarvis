@@ -1,8 +1,8 @@
 app:
-  name: "Jarvis"
+  name: "Sábado Feira"
   version: "0.1.0"
-  language: "pt-BR"
-  wake_word: "jarvis"
+  language: "en-US"
+  wake_word: "sábado feira"
 
 logging:
   level: "INFO"
