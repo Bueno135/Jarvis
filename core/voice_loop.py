@@ -139,24 +139,12 @@ class VoiceLoop:
                         if silence_duration > SILENCE_TIMEOUT_SPEECH:
                             self.logger.info(f"Fim de fala detectado ({silence_duration:.1f}s silêncio).")
                             is_capturing = False
-                            self.process_buffer(b''.join(audio_buffer))
+                            self.process_buffer(b''.join(audio_buffer), manual_trigger=self.is_manual_trigger)
                             audio_buffer = []
                     else:
                         if silence_duration > SILENCE_TIMEOUT_NO_SPEECH:
                             self.logger.info("Timeout: Nenhuma fala detectada.")
                             is_capturing = False
-                            # Don't process empty noise, but user might want to try? 
-                            # Usually better to ignore or send anyway? 
-                            # Let's send it, maybe it was a whisper.
-                            self.process_buffer(b''.join(audio_buffer))
-                            audio_buffer = []
-                    
-                    # 2. Max Buffer Size (Safety)
-                    total_bytes = sum(len(c) for c in audio_buffer)
-                            is_capturing = False
-                            # Was it manual or passive?
-                            # We need to track this state.
-                            # Let's add self.is_manual_trigger = True/False
                             self.process_buffer(b''.join(audio_buffer), manual_trigger=self.is_manual_trigger)
                             audio_buffer = []
                     
