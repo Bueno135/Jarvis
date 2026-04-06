@@ -108,6 +108,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+jarvis-env/
 
 # Spyder project settings
 .spyderproject
@@ -137,12 +138,105 @@ cython_debug/
 .vscode/
 .idea/
 
-# Project Specific
+# Jarvis specific
+logs/
+*.log
+debug_*.log
+model/
+models/
+data/memory/
+data/cache/
+metrics/
+*.json.bak
+
+# Audio files
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Model files
+*.pkl
+*.pth
+*.pt
+*.onnx
+*.h5
+
+# Configuration files with sensitive data
+config/secrets.yaml
+config/local.yaml
+*.key
+*.pem
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Cache directories
+.cache/
+cache/
+.pytest_cache/
+pytest-cache-files-*/
+
+# Virtual environments
+jarvis-env/
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Profiling
+*.prof
+*.profile
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Asset files
+assets/models/
+assets/audio/
+assets/cache/
+
+# Development files
+test_*.py
+debug_*.py
+temp_*.py
+
+# Security files
+*.key
+*.pem
+*.crt
+*.p12
+secrets/
+private/
+
+# Legacy project files (to be cleaned up)
 debug_response.json
 pip_list.txt
 repro.py
 repro_conflict.py
 test_env_clash.py
-debug_ai.log
-logs/
-model/
