@@ -1,8 +1,8 @@
 app:
-  name: "Sábado Feira"
+  name: "Jarvis"
   version: "0.1.0"
-  language: "en-US"
-  wake_word: "sábado feira"
+  language: "pt-BR"
+  wake_word: "jarvis"
 
 logging:
   level: "INFO"
@@ -37,6 +37,15 @@ stt:
   language: "pt"
   device: "cpu"
   sample_rate: 16000
+
+tts:
+  voice: "pt-BR-AntonioNeural"
+  rate: "+0%"
+
+validation:
+  check_dependencies: true
+  verify_plugins: true
+  log_level: "INFO"
 
 vad:
   # Limiar de energia RMS para detectar voz (ajuste conforme seu microfone)

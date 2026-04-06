@@ -77,22 +77,19 @@ def main():
 
         try:
             from core.voice_loop import VoiceLoop
-            from ui.tray import SystemTray
-            from ui.overlay import OverlayUI
+            from ui.ui_manager import UIManager
             import threading
             
-            # Iniciar Interface Overlay (Visual)
-            overlay = OverlayUI(kernel)
-            overlay.run()
-
+            # Iniciar UI Manager unificado
+            ui_manager = UIManager(kernel)
+            
             # Iniciar o Loop de Voz em uma Thread separada
             voice_loop = VoiceLoop(kernel)
             voice_thread = threading.Thread(target=voice_loop.start, daemon=True)
             voice_thread.start()
             
-            # Iniciar System Tray na Thread Principal
-            tray = SystemTray(kernel)
-            tray.run()
+            # Iniciar UI Manager (tray + overlay)
+            ui_manager.start()
             
         except ImportError as e:
             print(f"Erro de importação: {e}")

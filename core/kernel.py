@@ -4,6 +4,10 @@ from enum import Enum
 from typing import Dict, List, Callable, Any, Optional
 from .interfaces import PluginBase, CommandResult, CommandContext, MemoryEntry, TaskPlan, TaskStep, TaskStatus
 from .logger import setup_logger
+from .exceptions import (
+    JarvisException, PluginError, SecurityError, STTError, 
+    TTSError, MemoryError, ValidationError, handle_exception
+)
 import time
 import uuid
 
@@ -445,11 +449,26 @@ class Kernel:
                 self.set_state(SystemState.IDLE)
                 return result
                 
-            except Exception as e:
-                self.logger.error(f"Plugin execution failed: {e}")
+            except PluginError as e:
+                self.logger.error(f"Plugin error in {matched_plugin.name()}: {e}")
                 self.set_state(SystemState.ERROR)
-                self.speak("Ocorreu um erro ao executar o comando.")
-                return CommandResult(success=False, message=str(e))
+                self.speak(f"Erro no plugin {matched_plugin.name()}: {e.message}")
+                return CommandResult(False, f"Plugin error: {e.message}", {"plugin": matched_plugin.name(), "error_type": "plugin"})
+            except SecurityError as e:
+                self.logger.error(f"Security violation: {e}")
+                self.set_state(SystemState.ERROR)
+                self.speak("Comando bloqueado por segurança.")
+                return CommandResult(False, f"Security violation: {e.message}", {"error_type": "security"})
+            except ValidationError as e:
+                self.logger.error(f"Validation error: {e}")
+                self.set_state(SystemState.ERROR)
+                self.speak("Parâmetros inválidos no comando.")
+                return CommandResult(False, f"Validation error: {e.message}", {"error_type": "validation"})
+            except Exception as e:
+                self.logger.error(f"Unexpected error in plugin {matched_plugin.name()}: {e}", exc_info=True)
+                self.set_state(SystemState.ERROR)
+                self.speak("Ocorreu um erro inesperado ao executar o comando.")
+                return CommandResult(False, f"Unexpected error: {str(e)}", {"plugin": matched_plugin.name(), "error_type": "unexpected"})
         else:
             self.logger.warning(f"No intent found for: {text}")
             self.set_state(SystemState.IDLE)
