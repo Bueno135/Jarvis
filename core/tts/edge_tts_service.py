@@ -1,9 +1,10 @@
 import os
 import asyncio
 import edge_tts
-import pygame
 import tempfile
 import threading
+import subprocess
+import platform
 from core.interfaces import TextToSpeech
 from core.logger import setup_logger
 
@@ -13,12 +14,25 @@ class EdgeTTSService(TextToSpeech):
         self.logger = setup_logger("Jarvis.TTS.Edge", config)
         self.voice = config.get("tts", {}).get("voice", "pt-BR-AntonioNeural")
         self.rate = config.get("tts", {}).get("rate", "+0%")
+        self.is_playing = False
         
-        # Init Pygame Mixer
+        # Initialize audio system
+        self._init_audio_system()
+
+    def _init_audio_system(self):
+        """Initialize audio playback system based on platform."""
         try:
-            pygame.mixer.init()
+            if platform.system() == "Windows":
+                # Use Windows built-in media player
+                self.logger.info("Using Windows audio playback")
+            elif platform.system() == "Darwin":  # macOS
+                # Use afplay on macOS
+                self.logger.info("Using macOS audio playback")
+            else:
+                # Use aplay on Linux
+                self.logger.info("Using Linux audio playback")
         except Exception as e:
-            self.logger.error(f"Failed to init pygame mixer: {e}")
+            self.logger.error(f"Failed to init audio system: {e}")
 
     def speak(self, text: str) -> None:
         """
@@ -28,10 +42,7 @@ class EdgeTTSService(TextToSpeech):
             return
 
         try:
-            # Create a dedicated thread for the asyncio loop to avoid blocking logic
-            # or conflict with main thread loop if any.
-            # Ideally we should use a shared loop or simply run.
-            # Since this is a simple fire-and-forget for now:
+            # Create a dedicated thread for the asyncio loop
             threading.Thread(target=self._run_async, args=(text,), daemon=True).start()
         except Exception as e:
             self.logger.error(f"TTS Error: {e}")
@@ -40,19 +51,15 @@ class EdgeTTSService(TextToSpeech):
         """
         Returns True if audio is playing.
         """
-        try:
-            return pygame.mixer.music.get_busy()
-        except pygame.error as e:
-            self.logger.debug(f"Could not check mixer status: {e}")
-            return False
+        return self.is_playing
 
     def stop(self) -> None:
         """
         Stops current playback.
         """
         try:
-            if self.is_busy():
-                pygame.mixer.music.stop()
+            self.is_playing = False
+            self.logger.info("TTS playback stopped")
         except Exception as e:
             self.logger.error(f"Error stopping TTS: {e}")
 
@@ -72,23 +79,54 @@ class EdgeTTSService(TextToSpeech):
         try:
             await communicate.save(tmp_path)
             
-            # Play
+            # Play using system audio player
             self.logger.info(f"Speaking: {text}")
-            pygame.mixer.music.load(tmp_path)
-            pygame.mixer.music.play()
-            
-            while pygame.mixer.music.get_busy():
-                pygame.time.Clock().tick(10)
+            self.is_playing = True
+            self._play_audio_file(tmp_path)
                 
-            # Unload to release file lock
-            pygame.mixer.music.unload()
-            
         except Exception as e:
             self.logger.error(f"Playback Error: {e}")
         finally:
+            self.is_playing = False
             # Clean up
             if os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
                 except OSError as e:
                     self.logger.debug(f"Could not delete temp file {tmp_path}: {e}")
+
+    def _play_audio_file(self, file_path: str):
+        """Play audio file using system's default audio player."""
+        try:
+            if platform.system() == "Windows":
+                # Use Windows Media Player or start command
+                subprocess.run(["start", "/min", file_path], shell=True, check=True)
+                # Wait a bit for the file to start playing
+                import time
+                time.sleep(1)
+                # Estimate playback time (rough calculation: ~1 second per 10KB)
+                file_size = os.path.getsize(file_path)
+                estimated_duration = max(file_size / 10240, 2)  # At least 2 seconds
+                time.sleep(estimated_duration)
+                
+            elif platform.system() == "Darwin":  # macOS
+                # Use afplay
+                subprocess.run(["afplay", file_path], check=True)
+                
+            else:  # Linux
+                # Try different Linux audio players
+                players = ["aplay", "mpg123", "mplayer", "vlc"]
+                for player in players:
+                    try:
+                        subprocess.run([player, file_path], check=True, 
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        break
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+                else:
+                    self.logger.warning("No suitable audio player found on Linux")
+                    
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Audio playback failed: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error in audio playback: {e}")
