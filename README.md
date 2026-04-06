@@ -24,7 +24,7 @@ Um assistente de voz inteligente e local que respeita sua privacidade, construí
 ### 1. Clonar Repositório
 
 ```bash
-git clone https://github.com/usuario/jarvis.git
+git clone https://github.com/Bueno135/Jarvis.git
 cd jarvis
 ```
 
