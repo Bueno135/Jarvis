@@ -1,0 +1,73 @@
+{
+  "environments": {
+    "development": {
+      "python_version": "3.8",
+      "requirements": "requirements.txt",
+      "environment_file": ".env.development",
+      "services": ["kernel", "web"],
+      "debug": true,
+      "log_level": "DEBUG",
+      "hot_reload": true,
+      "monitoring": false
+    },
+    "staging": {
+      "python_version": "3.9",
+      "requirements": "requirements.txt",
+      "environment_file": ".env.staging",
+      "services": ["kernel", "web", "scheduler"],
+      "debug": false,
+      "log_level": "INFO",
+      "hot_reload": false,
+      "monitoring": true
+    },
+    "production": {
+      "python_version": "3.10",
+      "requirements": "requirements.txt",
+      "environment_file": ".env.production",
+      "services": ["kernel", "web", "scheduler", "monitoring"],
+      "debug": false,
+      "log_level": "WARNING",
+      "hot_reload": false,
+      "monitoring": true
+    }
+  },
+  "docker": {
+    "base_image": "python:3.10-slim",
+    "expose_ports": [8080],
+    "volumes": ["./data:/app/data", "./logs:/app/logs", "./config:/app/config"],
+    "environment_vars": ["PYTHONPATH=/app", "JARVIS_ENV=production"],
+    "health_check": {
+      "interval": "30s",
+      "timeout": "10s",
+      "retries": 3
+    }
+  },
+  "systemd": {
+    "user": "jarvis",
+    "group": "jarvis",
+    "working_directory": "/opt/jarvis",
+    "restart_policy": "always",
+    "timeout_start_sec": 30,
+    "timeout_stop_sec": 10
+  },
+  "monitoring": {
+    "metrics_port": 9090,
+    "health_check_interval": 60,
+    "log_retention_days": 30,
+    "performance_tracking": true
+  },
+  "security": {
+    "enable_ssl": true,
+    "ssl_cert_path": "/etc/ssl/certs/jarvis.crt",
+    "ssl_key_path": "/etc/ssl/private/jarvis.key",
+    "allowed_hosts": ["localhost", "127.0.0.1"],
+    "api_key_required": true
+  },
+  "backup": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "retention_days": 7,
+    "backup_dirs": ["data", "logs", "config"],
+    "backup_location": "/opt/jarvis/backups"
+  }
+}
