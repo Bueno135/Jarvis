@@ -1,0 +1,288 @@
+{
+  "project": "APEX",
+  "branchName": "ralph/apex-mvp-phases-3-6",
+  "description": "APEX AI Assistant MVP — Automation, Web Agent, Memory, Vision and Task Planning modules",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add TaskStep and TaskPlan data models to interfaces",
+      "description": "As a developer, I need data models for multi-step task planning so that the TaskPlanner can decompose goals into executable steps.",
+      "acceptanceCriteria": [
+        "Add TaskStep dataclass to core/interfaces.py with fields: id, description, plugin_name, params, status (pending/running/done/failed), result",
+        "Add TaskPlan dataclass with fields: goal, steps (List[TaskStep]), current_step_index, status",
+        "Add TaskPlannerBase abstract class with method: plan(goal: str) -> TaskPlan",
+        "Existing interfaces remain unchanged and backward-compatible",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add MemoryEntry data model and MemoryStore interface",
+      "description": "As a developer, I need memory abstractions so that short-term and long-term memory modules have a shared contract.",
+      "acceptanceCriteria": [
+        "Add MemoryEntry dataclass to core/interfaces.py with fields: id, content, metadata (dict), timestamp, entry_type (session/persistent)",
+        "Add MemoryStore abstract class with methods: store(entry), query(text, k) -> List[MemoryEntry], clear()",
+        "Existing interfaces remain unchanged",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create ShortTermMemory module",
+      "description": "As a user, I want the assistant to remember context from the current session so it can reference earlier commands and responses.",
+      "acceptanceCriteria": [
+        "Create core/memory/__init__.py and core/memory/short_term.py",
+        "ShortTermMemory implements MemoryStore using an in-memory list with max_entries config (default 50)",
+        "query() searches content via substring/keyword match and returns top-k results",
+        "clear() resets the session memory",
+        "Unit test in tests/test_short_term_memory.py passes with store/query/clear scenarios",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create LongTermMemory module with ChromaDB",
+      "description": "As a user, I want the assistant to remember my preferences and task history across sessions.",
+      "acceptanceCriteria": [
+        "Add chromadb to requirements.txt",
+        "Create core/memory/long_term.py implementing MemoryStore",
+        "Uses ChromaDB with persistent storage at data/memory/ directory",
+        "store() adds entry with embedding via ChromaDB default embedding function",
+        "query() performs semantic similarity search returning top-k results",
+        "Unit test in tests/test_long_term_memory.py passes with store/query scenarios",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Register memory services in Kernel",
+      "description": "As a developer, I need memory available as kernel services so all modules can store and retrieve context.",
+      "acceptanceCriteria": [
+        "Kernel.__init__ creates ShortTermMemory and LongTermMemory instances",
+        "Both registered via register_service('short_memory', ...) and register_service('long_memory', ...)",
+        "Add memory config section to config/config.yaml with max_entries and persist_path",
+        "Kernel.dispatch() stores each command and result in short_term memory automatically",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement TaskPlanner using Gemini LLM",
+      "description": "As a user, I want the assistant to decompose complex goals into a sequence of executable steps.",
+      "acceptanceCriteria": [
+        "Create core/task_planner.py implementing TaskPlannerBase",
+        "Uses GeminiClient to generate a plan from a goal string",
+        "Prompt includes list of available plugin names and their capabilities",
+        "Returns a TaskPlan with ordered TaskSteps, each referencing a plugin_name and params",
+        "Handles LLM errors gracefully with logging",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add multi-step task execution loop to Kernel",
+      "description": "As a user, I want the assistant to execute multi-step plans sequentially, handling failures at each step.",
+      "acceptanceCriteria": [
+        "Add execute_plan(plan: TaskPlan) method to Kernel",
+        "Iterates through steps in order, calling dispatch or plugin.execute for each",
+        "Updates step.status to running/done/failed as execution progresses",
+        "Stores intermediate results in ShortTermMemory",
+        "On step failure: logs error, marks plan as failed, returns partial results",
+        "Emits events: plan_started, step_started, step_completed, step_failed, plan_completed",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Create AutomationPlugin for mouse and keyboard control",
+      "description": "As a user, I want to control my mouse and keyboard through voice/text commands so the assistant can interact with my desktop.",
+      "acceptanceCriteria": [
+        "Create plugins/system/automation.py implementing PluginBase",
+        "Supports actions: click(x,y), double_click(x,y), type_text(text), hotkey(keys), move_to(x,y), scroll(amount)",
+        "Uses pyautogui (already in requirements.txt)",
+        "Patterns include: 'click', 'type', 'move mouse', 'scroll', 'press key'",
+        "Declares intents: 'mouse_click', 'keyboard_type', 'hotkey_press'",
+        "All actions logged for audit trail",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add autonomy modes to SecurityManager",
+      "description": "As a user, I want to control the assistant's autonomy level so I can choose between manual confirmation, semi-autonomous, and fully autonomous execution.",
+      "acceptanceCriteria": [
+        "Add AutonomyMode enum to core/security.py: MANUAL, SEMI_AUTO, AUTONOMOUS",
+        "Add autonomy_mode field to SecurityManager, configurable via config.yaml",
+        "MANUAL: all actions require confirmation (current behavior)",
+        "SEMI_AUTO: whitelisted actions auto-execute, others require confirmation",
+        "AUTONOMOUS: all non-dangerous actions auto-execute (dangerous always blocked)",
+        "Add set_autonomy_mode() and get_autonomy_mode() methods",
+        "Update can_execute_shell() to respect autonomy mode",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create BrowserService with Playwright",
+      "description": "As a developer, I need a browser automation service so the web agent plugin can navigate and interact with websites.",
+      "acceptanceCriteria": [
+        "Add playwright to requirements.txt",
+        "Create core/web/__init__.py and core/web/browser_service.py",
+        "BrowserService class with async methods: launch(), goto(url), get_page_text(), get_page_title(), click_element(selector), type_in(selector, text), screenshot(), close()",
+        "Uses Playwright Chromium in headless mode by default, configurable",
+        "Handles navigation errors and timeouts gracefully",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Register BrowserService in Kernel",
+      "description": "As a developer, I need the browser service available globally so plugins can use it.",
+      "acceptanceCriteria": [
+        "Kernel.__init__ lazily registers BrowserService (created on first use)",
+        "Add web config section to config/config.yaml with headless (bool) and timeout (int) options",
+        "get_service('browser') returns BrowserService instance",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Create WebAgentPlugin for web navigation commands",
+      "description": "As a user, I want to tell the assistant to open websites, search, and extract information from web pages.",
+      "acceptanceCriteria": [
+        "Create plugins/web/__init__.py and plugins/web/web_agent.py implementing PluginBase",
+        "Supports actions: navigate_to(url), search_google(query), extract_text(), extract_links(), take_screenshot()",
+        "Patterns include: 'open site', 'go to', 'search for', 'navigate to', 'browse'",
+        "Declares intents: 'web_navigate', 'web_search', 'web_extract'",
+        "Uses BrowserService from kernel.get_service('browser')",
+        "Returns extracted content in CommandResult.data",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Add OCR capability to vision module",
+      "description": "As a user, I want the assistant to read text from my screen so it can understand what's displayed.",
+      "acceptanceCriteria": [
+        "Add pytesseract and Pillow to requirements.txt (Pillow already present)",
+        "Create core/vision/ocr.py with extract_text(image: PIL.Image) -> str method",
+        "Uses pytesseract for text extraction with Portuguese and English language support",
+        "Handles images with no text gracefully (returns empty string)",
+        "Unit test in tests/test_ocr.py with a test image passes",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Add multimodal vision analysis using Gemini",
+      "description": "As a user, I want the assistant to analyze my screen content by sending screenshots to a vision-capable LLM.",
+      "acceptanceCriteria": [
+        "Create core/vision/analyzer.py with analyze_screen(question: str) -> str method",
+        "Captures screenshot using existing screen_capture module",
+        "Sends image + question to Gemini multimodal API via GeminiClient",
+        "Returns LLM text response describing what's on screen",
+        "Handles API errors gracefully with fallback to OCR-based description",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Create VisionPlugin for screen analysis commands",
+      "description": "As a user, I want to ask 'what's on my screen?' and get an intelligent description of what the assistant sees.",
+      "acceptanceCriteria": [
+        "Create plugins/system/vision_plugin.py implementing PluginBase",
+        "Patterns include: 'what is on my screen', 'what do you see', 'read my screen', 'o que tem na tela'",
+        "Declares intents: 'screen_read', 'screen_analyze'",
+        "Uses core/vision/analyzer.py for multimodal analysis",
+        "Falls back to OCR if multimodal analysis fails",
+        "Speaks the result via TTS",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Wire TaskPlanner into Kernel dispatch for complex commands",
+      "description": "As a user, I want complex multi-step requests to be automatically planned and executed without manual intervention.",
+      "acceptanceCriteria": [
+        "Modify Kernel.dispatch() to detect multi-step intents from AI resolver",
+        "When AI returns intent 'multi_step' or 'complex_task', invoke TaskPlanner.plan()",
+        "Execute resulting plan via execute_plan()",
+        "Store full plan history in ShortTermMemory",
+        "Speak progress updates at each step via TTS",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Add comprehensive integration tests for the agent pipeline",
+      "description": "As a developer, I need integration tests to verify the full command-to-execution pipeline works end-to-end.",
+      "acceptanceCriteria": [
+        "Create tests/test_integration.py with pytest",
+        "Test 1: Simple command dispatched to correct plugin (echo, file_ops)",
+        "Test 2: AI fallback resolves intent and routes to plugin",
+        "Test 3: ShortTermMemory stores and retrieves command history",
+        "Test 4: TaskPlanner generates valid plan from goal string (mocked LLM)",
+        "Test 5: SecurityManager blocks dangerous commands in all autonomy modes",
+        "All tests pass with mocked external dependencies (no real API calls)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

@@ -42,7 +42,8 @@ class EdgeTTSService(TextToSpeech):
         """
         try:
             return pygame.mixer.music.get_busy()
-        except:
+        except pygame.error as e:
+            self.logger.debug(f"Could not check mixer status: {e}")
             return False
 
     def stop(self) -> None:
@@ -89,5 +90,5 @@ class EdgeTTSService(TextToSpeech):
             if os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
-                except:
-                    pass
+                except OSError as e:
+                    self.logger.debug(f"Could not delete temp file {tmp_path}: {e}")

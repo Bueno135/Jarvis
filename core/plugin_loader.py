@@ -57,9 +57,23 @@ class PluginLoader:
         try:
             module = importlib.import_module(full_module_name)
             return self._extract_plugin_from_module(module)
+        except ModuleNotFoundError as e:
+            self.logger.error(
+                f"Dependência ausente ao carregar '{full_module_name}': {e}. "
+                f"Execute 'pip install' para instalar o pacote necessário."
+            )
+        except ImportError as e:
+            self.logger.error(f"Erro de importação em '{full_module_name}': {e}")
+        except SyntaxError as e:
+            self.logger.error(
+                f"Erro de sintaxe em '{full_module_name}' (linha {e.lineno}): {e.msg}"
+            )
         except Exception as e:
-            self.logger.error(f"Failed to load plugin module {full_module_name}: {e}")
-            return None
+            self.logger.error(
+                f"Erro inesperado ao carregar '{full_module_name}': "
+                f"{type(e).__name__}: {e}"
+            )
+        return None
 
     def _extract_plugin_from_module(self, module) -> PluginBase:
         """

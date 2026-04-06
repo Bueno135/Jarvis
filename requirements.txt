@@ -1,6 +1,5 @@
 pyyaml
 colorlog
-colorlog
 sounddevice
 numpy
 keyboard
@@ -12,5 +11,7 @@ torch
 scipy
 edge-tts
 pygame
-pillow
 pyautogui
+chromadb
+playwright
+pytesseract

@@ -1,26 +1,55 @@
 import argparse
 import sys
-# import google.genai # Force load first (removed to let client handle it)
 import yaml
 import os
 from core.kernel import Kernel, SystemState
 from core.interfaces import CommandResult
+from core.config_validator import validate_config, validate_environment, ConfigValidationError
 
 
 def load_config(path="config/config.yaml"):
+    """Load and validate configuration from YAML file."""
+    raw_config = {}
+    
     if not os.path.exists(path):
         print(f"Config file not found at {path}. Using defaults.")
-        return {}
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
+    else:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                raw_config = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            print(f"Error parsing config file: {e}")
+            sys.exit(1)
+    
+    # Validate and normalize config
+    try:
+        config, warnings = validate_config(raw_config)
+        for warning in warnings:
+            print(f"\u26a0\ufe0f  Config warning: {warning}")
+    except ConfigValidationError as e:
+        print(f"\u274c Config error: {e}")
+        sys.exit(1)
+    
+    # Check environment requirements
+    env_warnings = validate_environment(config)
+    for warning in env_warnings:
+        print(f"\u26a0\ufe0f  Environment warning: {warning}")
+    
+    return config
+
 
 def main():
     parser = argparse.ArgumentParser(description="Jarvis - Local Voice Assistant")
     parser.add_argument("--text", type=str, help="Run a text command directly and exit")
+    parser.add_argument("--validate-config", action="store_true", help="Validate config and exit")
     args = parser.parse_args()
 
-    # 1. Load Config
+    # 1. Load and Validate Config
     config = load_config()
+    
+    if args.validate_config:
+        print("\u2705 Configuration is valid.")
+        sys.exit(0)
 
     # 2. Initialize Kernel
     kernel = Kernel(config)
@@ -42,11 +71,11 @@ def main():
         # Verificar se a pasta do modelo existe
         if not os.path.exists("model"):
             print("❌ ERRO CRÍTICO: Modelo Vosk não encontrado.")
-            # ... (mensagem de erro mantida)
+            print("Por favor, baixe um modelo de https://alphacephei.com/vosk/models")
+            print("e extraia-o na pasta 'model/' do projeto.")
             sys.exit(1)
 
         try:
-            from core.voice_loop import VoiceLoop
             from core.voice_loop import VoiceLoop
             from ui.tray import SystemTray
             from ui.overlay import OverlayUI

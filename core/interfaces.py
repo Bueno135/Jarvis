@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
+import time
 
 @dataclass
 class CommandContext:
@@ -94,5 +96,98 @@ class TextToSpeech(ABC):
     def stop(self) -> None:
         """
         Stops current playback.
+        """
+        pass
+
+
+class TaskStatus(Enum):
+    """
+    Enum for tracking the status of tasks and task steps.
+    """
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+@dataclass
+class TaskStep:
+    """
+    Represents a single step in a task plan.
+    """
+    id: str
+    description: str
+    plugin_name: str
+    params: Dict[str, Any] = field(default_factory=dict)
+    status: TaskStatus = TaskStatus.PENDING
+    result: Optional[CommandResult] = None
+
+
+@dataclass
+class TaskPlan:
+    """
+    Represents a multi-step plan to achieve a goal.
+    """
+    goal: str
+    steps: List[TaskStep] = field(default_factory=list)
+    current_step_index: int = 0
+    status: TaskStatus = TaskStatus.PENDING
+
+
+class TaskPlannerBase(ABC):
+    """
+    Abstract base class for task planning implementations.
+    """
+    @abstractmethod
+    def plan(self, goal: str, available_plugins: List[str]) -> TaskPlan:
+        """
+        Generates a task plan to achieve the given goal.
+        """
+        pass
+
+
+class MemoryEntryType(Enum):
+    """
+    Enum for types of memory entries.
+    """
+    SESSION = "session"
+    PERSISTENT = "persistent"
+
+
+@dataclass
+class MemoryEntry:
+    """
+    Represents a single entry in the memory store.
+    """
+    id: str
+    content: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    timestamp: float = field(default_factory=time.time)
+    entry_type: MemoryEntryType = MemoryEntryType.SESSION
+
+
+class MemoryStore(ABC):
+    """
+    Abstract base class for memory storage implementations.
+    """
+    @abstractmethod
+    def store(self, entry: MemoryEntry) -> None:
+        """
+        Stores a memory entry.
+        """
+        pass
+
+    @abstractmethod
+    def query(self, text: str, k: int = 5) -> List[MemoryEntry]:
+        """
+        Queries the memory store for relevant entries.
+        Returns the k most relevant entries.
+        """
+        pass
+
+    @abstractmethod
+    def clear(self) -> None:
+        """
+        Clears all memory entries.
         """
         pass

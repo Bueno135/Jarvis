@@ -1,6 +1,8 @@
 import sys
 import time
 import json
+import string
+import unicodedata
 import numpy as np
 import threading
 import queue
@@ -61,22 +63,21 @@ class VoiceLoop:
         try:
             stream = self.audio_manager.start_stream()
             
-            # Buffer Configuration
-            BUFFER_DURATION = 5.0 # Max seconds per phrase
-            SAMPLE_RATE = 16000
-            ENERGY_THRESHOLD = 300
-            
+            # Parâmetros lidos do config (com fallback para valores padrão)
+            vad_cfg = self.config.get("vad", {})
+            SAMPLE_RATE             = self.config.get("stt", {}).get("sample_rate", 16000)
+            ENERGY_THRESHOLD        = vad_cfg.get("energy_threshold", 300)
+            SILENCE_TIMEOUT_SPEECH  = vad_cfg.get("silence_timeout_speech", 1.0)
+            SILENCE_TIMEOUT_NO_SPEECH = vad_cfg.get("silence_timeout_no_speech", 5.0)
+            MAX_BUFFER_SECONDS      = vad_cfg.get("max_buffer_seconds", 15)
+
             audio_buffer = []
             is_capturing = False
             silence_start = 0
             has_speech_started = False
-            
+
             # Track trigger type
             self.is_manual_trigger = False
-
-            # VAD Parameters
-            SILENCE_TIMEOUT_SPEECH = 1.0    # Stop after 1.0s silence if speech was detected
-            SILENCE_TIMEOUT_NO_SPEECH = 5.0 # Stop after 5.0s if no speech detected
             
             self.logger.info("Aguardando comando...")
             
@@ -138,9 +139,9 @@ class VoiceLoop:
                             
                     # Max Buffer Check
                     total_bytes = sum(len(c) for c in audio_buffer)
-                    if total_bytes > (16000 * 2 * 15): 
-                         self.logger.info("Buffer cheio (15s). processando...")
-                         should_process = True
+                    if total_bytes > (SAMPLE_RATE * 2 * MAX_BUFFER_SECONDS):
+                        self.logger.info(f"Buffer cheio ({MAX_BUFFER_SECONDS}s). Processando...")
+                        should_process = True
 
                     if should_process:
                         is_capturing = False
@@ -201,10 +202,7 @@ class VoiceLoop:
         # Wake Word Logic
         raw_wake_word = self.config.get("app", {}).get("wake_word", "jarvis")
         
-        # Helper to aggressive normalize
-        import unicodedata
-        import string
-
+        # Helper para normalizar agressivamente (remove acentos, pontuação, caixa)
         def to_id(s):
             if not s: return ""
             if isinstance(s, bytes): s = s.decode('utf-8', errors='ignore')

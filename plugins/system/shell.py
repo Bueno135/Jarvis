@@ -1,4 +1,5 @@
 import subprocess
+import shlex
 from typing import List
 from core.interfaces import PluginBase, CommandContext, CommandResult
 
@@ -29,9 +30,23 @@ class RunShellPlugin(PluginBase):
             return CommandResult(False, f"Command '{target}' is BLOCKED by whitelist.")
 
         try:
-            # capture_output=True to return the result
-            process = subprocess.run(target, shell=True, capture_output=True, text=True)
+            # shlex.split() para evitar injeção via metacaracteres de shell.
+            # shell=False garante que o comando não passe pelo interpretador de shell.
+            args = shlex.split(target)
+            process = subprocess.run(
+                args,
+                shell=False,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
             output = process.stdout.strip() or process.stderr.strip()
             return CommandResult(True, f"Executed: {output}")
+        except ValueError as e:
+            return CommandResult(False, f"Sintaxe inválida no comando: {str(e)}")
+        except subprocess.TimeoutExpired:
+            return CommandResult(False, "Comando excedeu o tempo limite (30s).")
+        except FileNotFoundError:
+            return CommandResult(False, f"Comando '{target.split()[0]}' não encontrado no sistema.")
         except Exception as e:
             return CommandResult(False, f"Execution failed: {str(e)}")

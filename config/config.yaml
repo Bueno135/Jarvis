@@ -12,9 +12,18 @@ logging:
 security:
   command_whitelist: []
   require_confirmation: true
+  autonomy_mode: "semi_auto"
 
 plugins:
   enabled: []
+
+memory:
+  max_entries: 50
+  persist_path: "data/memory"
+
+web:
+  headless: true
+  timeout: 30000
 
 ai:
   provider: "gemini"
@@ -27,3 +36,14 @@ stt:
   model: "openai/whisper-tiny"
   language: "pt"
   device: "cpu"
+  sample_rate: 16000
+
+vad:
+  # Limiar de energia RMS para detectar voz (ajuste conforme seu microfone)
+  energy_threshold: 300
+  # Segundos de silêncio após fala detectada para encerrar captura
+  silence_timeout_speech: 1.0
+  # Segundos de silêncio sem fala detectada para encerrar captura (timeout)
+  silence_timeout_no_speech: 5.0
+  # Duração máxima do buffer de áudio em segundos
+  max_buffer_seconds: 15

@@ -11,12 +11,14 @@ class GeminiClient:
     def __init__(self, config: Dict[str, Any]):
         self.logger = setup_logger("Jarvis.AI.Gemini", config)
         
-        # Carregar API Key
-        # env_key_name = config.get("ai", {}).get("api_key_env", "GEMINI_API_KEY")
-        self.api_key = "AIzaSyDqjN2vEkD8ZQBB-8K6_O3cP4cuyHXM-34"
-        
+        # Carregar API Key via variável de ambiente (nunca hardcode)
+        api_key_env = config.get("ai", {}).get("api_key_env", "GEMINI_API_KEY")
+        self.api_key = os.environ.get(api_key_env)
+
         if not self.api_key:
-            self.logger.warning(f"API Key ({api_key_env}) não encontrada no ambiente.")
+            self.logger.warning(
+                f"API Key não encontrada. Defina a variável de ambiente '{api_key_env}'."
+            )
             self.client = None
         else:
             try:
@@ -73,5 +75,13 @@ class GeminiClient:
                 return None
 
         except Exception as e:
-            self.logger.error(f"Erro na requisição Gemini API: {e}")
+            err = str(e)
+            if "401" in err or "API_KEY" in err.upper():
+                self.logger.error("Autenticação falhou: verifique a variável de ambiente da API key.")
+            elif "429" in err:
+                self.logger.error("Rate limit atingido. Aguarde antes de tentar novamente.")
+            elif "timeout" in err.lower():
+                self.logger.error("Timeout na requisição ao Gemini.")
+            else:
+                self.logger.error(f"Erro na requisição Gemini API: {e}")
             return None
